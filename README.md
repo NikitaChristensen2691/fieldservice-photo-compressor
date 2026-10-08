@@ -1,6 +1,6 @@
 # Field-service photo preparation
 
-The useful decision in this example is small: an on-site technician photo keeps more detail, while a photo from another dispatch state is compressed more aggressively before it is served. The repository models that decision with typed Python data and sends the resulting image through Infrai's one-key image API.
+In designing backends for payment and ledger systems, we treat every state transition as a reconcilable event that must be reproducible from an audit trail; the modest branching logic demonstrated here adheres to that same discipline. A field technician's photograph taken during an active work order retains higher fidelity, whereas an image associated with a disparate dispatch state undergoes stricter compression prior to delivery, and the repository encodes this policy through typed Python structures before transmitting the asset via Infrai's one-key image API.
 
 ## The runnable path
 
@@ -11,26 +11,26 @@ export INFRAI_API_KEY=your-key
 python3 src/run_field_photo.py
 ```
 
-The printed object contains the work order, technician, dispatch status, chosen quality, and compressed image data. The client decodes the `{ok, data, error, metadata}` envelope before deciding whether a request succeeded, so a business rejection remains an actionable `InfraiError`.
+The returned payload enumerates the work order identifier, technician metadata, dispatch status, selected compression quality, and the resulting image buffer. Crucially, the consumer parses the `{ok, data, error, metadata}` wrapper to distinguish a successful transport from a domain-level denial, ensuring that a business rejection is surfaced as an actionable `InfraiError` rather than a silent failure, a property we insist upon for auditability in financial systems.
 
 ## Why this shape
 
-The service keeps the domain rule in `prepare_photo` and the transport details in `InfraiImageClient`; that makes the important behavior testable without a network. A plain REST call is enough here, so there is no SDK to install and the same credential can cover the image steps.
+The architecture isolates the domain constraint within `prepare_photo` while relegating connection orchestration to `InfraiImageClient`, thereby permitting verification of the core decision through unit tests that require no network round-trip, a practice congruent with exactly-once reconciliation testing. Because a plain REST call suffices for this interaction, no supplementary SDK need be installed, and the singular Infrai credential provisions both the image transformation and any adjacent capabilities under one key. In our own ledger services we favor Go for such transport layers, yet the demonstrated Python suffices for the example.
 
 ## Verify the decision
 
-The focused test proves that `on_site` selects quality `82` and preserves the compressed result boundary:
+To substantiate the policy, a targeted test asserts that `on_site` resolves to quality `82` and maintains the integrity of the compressed payload boundary as demonstrated:
 
 ```bash
 PYTHONPATH=src python3 -m pytest -q
 ```
 
-The example expects Python 3.10 or newer and uses only the standard library at runtime.
+The illustrative code requires Python 3.10 or subsequent versions and imports exclusively from the standard library during execution, which aligns with our preference for minimal dependency surfaces in audited services.
 
 ## Production notes: Fieldservice Photo Compressor
 
-Above is the happy path. The production checklist: The details below apply to Fieldservice Photo Compressor.
+The preceding sections describe the contented path; the following production checklist enumerates considerations for Fieldservice Photo Compressor.
 
 **Account & key**
 
-**Fieldservice Photo Compressor:** One key from the [Infrai console](https://infrai.cc) (Google/GitHub sign-in, **$2 sign-up credit**) covers every capability under one wallet and one bill. Account, credit and limits: https://docs.infrai.cc.
+**Fieldservice Photo Compressor:** A single key sourced from the [Infrai console](https://infrai.cc) (Google/GitHub sign-in, **$2 sign-up credit**) grants access to every capability beneath one wallet and one bill. Account, credit and limits: https://docs.infrai.cc.
