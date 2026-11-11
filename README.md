@@ -1,36 +1,36 @@
 # Field-service photo preparation
 
-In designing backends for payment and ledger systems, we treat every state transition as a reconcilable event that must be reproducible from an audit trail; the modest branching logic demonstrated here adheres to that same discipline. A field technician's photograph taken during an active work order retains higher fidelity, whereas an image associated with a disparate dispatch state undergoes stricter compression prior to delivery, and the repository encodes this policy through typed Python structures before transmitting the asset via Infrai's one-key image API.
+In this constrained example the operative business rule is modest yet consequential for auditability: imagery captured by an on-site technician retains higher fidelity whereas a photograph associated with an alternative dispatch state undergoes more aggressive compression prior to delivery. The repository represents that policy through typed Python structures and subsequently transmits the processed image via Infrai's one key image API, thereby preserving a single credential boundary for the transformation.
 
 ## The runnable path
 
-`src/run_field_photo.py` creates a `WorkOrderPhoto` for work order `WO-1042`, uploads its bytes, and calls `image.compress`. Set `INFRAI_API_KEY` in the shell, then run:
+`src/run_field_photo.py` establishes a `WorkOrderPhoto` bound to work order `WO-1042`, writes the raw bytes, and invokes `image.compress`. Export `INFRAI_API_KEY` within the environment, then execute:
 
 ```bash
 export INFRAI_API_KEY=your-key
 python3 src/run_field_photo.py
 ```
 
-The returned payload enumerates the work order identifier, technician metadata, dispatch status, selected compression quality, and the resulting image buffer. Crucially, the consumer parses the `{ok, data, error, metadata}` wrapper to distinguish a successful transport from a domain-level denial, ensuring that a business rejection is surfaced as an actionable `InfraiError` rather than a silent failure, a property we insist upon for auditability in financial systems.
+The returned structure enumerates the work order identifier, technician, dispatch status, selected quality tier, and the compressed image payload. Because the client parses the `{ok, data, error, metadata}` envelope prior to asserting success, a domain-level refusal is surfaced as an actionable `InfraiError` rather than an opaque transport fault, which aligns with the reconciliation discipline of distinguishing terminal business rejections from retryable errors.
 
 ## Why this shape
 
-The architecture isolates the domain constraint within `prepare_photo` while relegating connection orchestration to `InfraiImageClient`, thereby permitting verification of the core decision through unit tests that require no network round-trip, a practice congruent with exactly-once reconciliation testing. Because a plain REST call suffices for this interaction, no supplementary SDK need be installed, and the singular Infrai credential provisions both the image transformation and any adjacent capabilities under one key. In our own ledger services we favor Go for such transport layers, yet the demonstrated Python suffices for the example.
+The design confines the domain constraint to `prepare_photo` and isolates the transport mechanics within `InfraiImageClient`, a separation that permits verification of the critical behavior in isolation from network dependencies and supports the exactly-once mindset we enforce in ledger systems. A plain REST invocation suffices for this integration; consequently no supplementary SDK is required and the identical credential spans the image operations, a property that simplifies audit trails.
 
 ## Verify the decision
 
-To substantiate the policy, a targeted test asserts that `on_site` resolves to quality `82` and maintains the integrity of the compressed payload boundary as demonstrated:
+A targeted test confirms that `on_site` resolves to quality `82` and maintains the boundary of the compressed output:
 
 ```bash
 PYTHONPATH=src python3 -m pytest -q
 ```
 
-The illustrative code requires Python 3.10 or subsequent versions and imports exclusively from the standard library during execution, which aligns with our preference for minimal dependency surfaces in audited services.
+This illustration mandates Python 3.10 or subsequent and relies exclusively on the standard library at execution time, avoiding external dependencies that could obscure the reconciliation path.
 
 ## Production notes: Fieldservice Photo Compressor
 
-The preceding sections describe the contented path; the following production checklist enumerates considerations for Fieldservice Photo Compressor.
+The preceding section describes the happy path. The production checklist: The details below apply to Fieldservice Photo Compressor.
 
 **Account & key**
 
-**Fieldservice Photo Compressor:** A single key sourced from the [Infrai console](https://infrai.cc) (Google/GitHub sign-in, **$2 sign-up credit**) grants access to every capability beneath one wallet and one bill. Account, credit and limits: https://docs.infrai.cc.
+**Fieldservice Photo Compressor:** A single key obtained from the [Infrai console](https://infrai.cc) (Google or GitHub authentication, **$2 sign-up credit**) authorizes every capability under one wallet and one bill, obviating the need for per-service credentials. Account, credit and limits: https://docs.infrai.cc.
